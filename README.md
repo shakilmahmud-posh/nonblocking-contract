@@ -1,4 +1,6 @@
-# rt-safety
+# nonblocking-contract
+
+[![check](https://github.com/shakilmahmud-posh/nonblocking-contract/actions/workflows/check.yml/badge.svg)](https://github.com/shakilmahmud-posh/nonblocking-contract/actions/workflows/check.yml)
 
 **A realtime-safety contract for C++, enforced by the compiler instead of by discipline.**
 
@@ -67,9 +69,10 @@ compiler's job.
 ## Quickstart
 
 ```bash
-git clone https://github.com/<you>/rt-safety
-cd rt-safety
+git clone https://github.com/shakilmahmud-posh/nonblocking-contract
+cd nonblocking-contract
 make check          # verify + test + guard + darwin + example
+make verify-strict  # same, but FAILS if the toolchain cannot enforce (this is what CI runs)
 ```
 
 Then copy `include/rt_safety.h` into your project — it is a single header with no dependencies —
@@ -109,6 +112,34 @@ debug and `NDEBUG` builds.
 but no genuine GCC or MSVC build has been run against this — on macOS, `g++` is just clang wearing
 a hat. If you build it on either, an issue saying what happened would be genuinely useful.
 
+## Prior art
+
+[`JanosGit/RealtimeSafetyCheckHelpers`](https://github.com/JanosGit/RealtimeSafetyCheckHelpers) is
+the closest thing that exists — helper tools that detect realtime-critical system calls in DSP code
+or third-party libraries. It works at **runtime**, catching what you execute, and it has been
+dormant since 2019.
+
+This library is the compile-time half of the same problem. The two are complementary rather than
+competing: `rt_guard.h` here does roughly what that project does, and exists precisely for the
+toolchains where the compile-time contract is unavailable.
+
+If you know of other prior art, an issue pointing at it is welcome — I would rather cite it than
+pretend this space is emptier than it is.
+
+## Testing the unenforced path
+
+Most people cannot install every toolchain their users have. `RT_SAFETY_FORCE_INERT` compiles the
+unenforced path on a compiler that could have enforced it, so you can check your project still
+builds and behaves when `RT_SAFE` does nothing:
+
+```bash
+make check CXX="clang++ -DRT_SAFETY_FORCE_INERT -DRT_SAFETY_SILENCE_WARNING"
+```
+
+`make verify` then reports SKIPPED rather than failing — a developer on the wrong compiler has not
+broken anything. `make verify-strict` still fails, because a skip is a pass for that developer and
+is **not** a pass for the project. CI runs the strict one.
+
 ## The one deliberate hole
 
 `rt_safety_darwin.h` contains exactly one knowing violation, and it is documented at the call site
@@ -137,6 +168,12 @@ the safety harness, which is more useful to everyone else than the DSP is.
 
 Applicable well beyond audio — game audio callbacks, robotics control loops, embedded ISRs, any
 deadline you cannot miss.
+
+## Maintenance
+
+Best-effort, and I would rather say so than imply otherwise. Issues are welcome and I read them;
+responses are not guaranteed and may be slow. This is extracted from a product I work on, not a
+project I staff. Fork freely — that is what the licence is for.
 
 ## Licence
 

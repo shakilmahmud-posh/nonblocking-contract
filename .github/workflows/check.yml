@@ -1,0 +1,67 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # The authoritative job. Upstream LLVM 20 definitely has
+  # [[clang::nonblocking]], so verify-strict genuinely exercises the contract.
+  # If this is green, the eleven violation cases really were rejected.
+  linux-clang:
+    name: linux / clang-20 (enforcing)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-20
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+          sudo add-apt-repository -y \
+            "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main"
+          sudo apt-get update
+          sudo apt-get install -y clang-20
+      - name: verify-strict — the contract must actually be enforced
+        run: make verify-strict CXX=clang++-20
+      - name: test / guard / example
+        run: make test guard example CXX=clang++-20
+
+  # The fallback path, on a compiler that genuinely cannot enforce anything.
+  # This is the job that closes the "GCC unverified" caveat in the README:
+  # RT_SAFE is inert here, so the library must still compile and be correct.
+  linux-gcc:
+    name: linux / gcc (inert fallback)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: g++ version
+        run: g++ --version
+      - name: verify must SKIP, not fail
+        run: make verify CXX=g++ CXXFLAGS="-std=c++20 -O2 -Wall -Wextra -Iinclude -DRT_SAFETY_SILENCE_WARNING"
+      - name: the library must still build and be correct with RT_SAFE inert
+        run: |
+          make test guard example CXX=g++ \
+            CXXFLAGS="-std=c++20 -O2 -Wall -Wextra -Iinclude -DRT_SAFETY_SILENCE_WARNING" \
+            RT_CONTRACT=
+      - name: verify-strict must FAIL here — a skip is not a pass
+        run: |
+          if make verify-strict CXX=g++ 2>/dev/null; then
+            echo "verify-strict passed on a toolchain that cannot enforce. That is a bug."
+            exit 1
+          fi
+          echo "verify-strict correctly refused to go green."
+
+  # Builds the Darwin header so it is never shipped unbuilt. GitHub's macOS
+  # runners may carry an Apple clang without function effects, in which case
+  # verify skips — which is why the enforcing job above is the Linux one.
+  macos:
+    name: macos / apple clang (darwin layer)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: clang version
+        run: clang++ --version
+      - name: full check
+        run: make check

@@ -38,7 +38,12 @@
 // unenforced. That is not a silent downgrade: you get a #warning, and
 // RT_SAFETY_ENFORCED tells you at compile time which world you are in.
 
-#if defined(__clang__) && defined(__has_cpp_attribute)
+// RT_SAFETY_FORCE_INERT lets you compile the unenforced path deliberately, on a
+// compiler that could have enforced it. That matters because most people
+// writing this code cannot install every toolchain their users have: it is how
+// you check that your project still builds and behaves when RT_SAFE does
+// nothing, without owning a GCC box.
+#if defined(__clang__) && defined(__has_cpp_attribute) && !defined(RT_SAFETY_FORCE_INERT)
   #if __has_cpp_attribute(clang::nonblocking)
     #define RT_SAFE [[clang::nonblocking]]
     #define RT_SAFETY_ENFORCED 1

@@ -1,4 +1,4 @@
-# rt-safety
+# nonblocking-contract
 #
 # RT_CONTRACT is not optional and not a lint pass. -Werror on -Wfunction-effects
 # means an allocation, a lock, or any I/O reachable from an RT_SAFE function is
@@ -16,7 +16,15 @@ BUILD        = build
 CASES        = 1 2 3 4 5 6 7 8 9 10 11
 UNAME_S     := $(shell uname -s)
 
-.PHONY: all check verify test guard darwin example clean
+.PHONY: all check verify verify-strict test guard darwin example clean
+
+# Can this toolchain enforce the contract at all? On GCC, MSVC, and older Apple
+# clang, RT_SAFE is inert — every violation case then compiles, and a plain
+# `verify` would shout "CONTRACT NOT ENFORCED" at someone who never had the
+# option. Probe once, up front, and skip honestly instead.
+ENFORCED := $(shell $(CXX) $(STD) $(INC) -DRT_SAFETY_SILENCE_WARNING \
+              -fsyntax-only test/rt_enforced_probe.cpp >/dev/null 2>&1 \
+              && echo 1 || echo 0)
 
 all: check
 
@@ -24,7 +32,7 @@ all: check
 # the contract still lets real work through.
 check: verify test guard darwin example
 	@echo
-	@echo "  rt-safety: all checks passed."
+	@echo "  nonblocking-contract: all checks passed."
 
 # ---------------------------------------------------------------- negative
 #
@@ -36,6 +44,12 @@ check: verify test guard darwin example
 # green while proving nothing. Case 6 did exactly that during development.
 
 verify:
+ifeq ($(ENFORCED),0)
+	@echo "verify — SKIPPED: $(CXX) cannot enforce the contract (RT_SAFE is inert)."
+	@echo "         Needs clang 20+ with -Wfunction-effects. rt_guard.h is the"
+	@echo "         runtime fallback for this toolchain. Not a failure — but"
+	@echo "         nothing here was proven either. CI runs verify-strict."
+else
 	@echo "verify — the compiler must REJECT every violation:"
 	@fail=0; \
 	for c in $(CASES); do \
@@ -53,6 +67,18 @@ verify:
 	done; \
 	if [ $$fail -eq 0 ]; then echo "  RT contract enforced."; \
 	else echo "  RT CONTRACT BROKEN"; exit 1; fi
+endif
+
+# The gate CI runs. A skip is a pass for a developer on the wrong compiler; it
+# is NOT a pass for the project. This target refuses to be green unless the
+# contract was actually exercised.
+verify-strict:
+	@if [ "$(ENFORCED)" != "1" ]; then \
+	  echo "verify-strict: FAILED — $(CXX) cannot enforce the contract."; \
+	  echo "               RT_SAFETY_ENFORCED is 0, so nothing would be proven."; \
+	  exit 1; \
+	fi
+	@$(MAKE) --no-print-directory verify
 
 # ---------------------------------------------------------------- positive
 #
