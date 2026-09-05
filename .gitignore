@@ -5,3 +5,4 @@ build/
 
 # factory metadata — internal, not part of the public release
 .claude/
+CLAUDE.md
