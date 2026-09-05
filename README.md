@@ -104,13 +104,22 @@ helper in this library secretly allocates, it does not build.
 | **Clang 20+**  | Full enforcement. `[[clang::nonblocking]]` is a function effect: it propagates through the call graph, so violations are caught at the call site rather than by a human following the chain. |
 | **GCC / MSVC** | `RT_SAFE` expands to nothing. You get a `#warning`, and `RT_SAFETY_ENFORCED` is `0`. Use `rt_guard.h` for a runtime net.                                                                     |
 
-**Verified on:** Apple clang 21.0.0, arm64-apple-darwin25. All eleven violation cases rejected with
-the contract's own diagnostic; twenty positive assertions passing; runtime guard passing in both
-debug and `NDEBUG` builds.
+**Verified in CI on every push** ([workflow](.github/workflows/check.yml)):
 
-**Not verified:** real GCC and MSVC. The fallback path is written and the `NDEBUG` path is tested,
-but no genuine GCC or MSVC build has been run against this — on macOS, `g++` is just clang wearing
-a hat. If you build it on either, an issue saying what happened would be genuinely useful.
+| Toolchain | Result |
+| --- | --- |
+| clang 20 (upstream, Linux) | `verify-strict` green — all 11 cases rejected with the contract's own diagnostic |
+| Apple clang 21.0.0 (macOS) | full `make check` green, including the Darwin layer |
+| GCC 13.3.0 (Linux) | `RT_SAFE` inert: `verify` skips, library builds and all assertions pass, and `verify-strict` correctly refuses to go green |
+
+The GCC job is deliberately adversarial about its own result — it asserts that `verify-strict`
+**fails** there. A library that reported success on a toolchain where it enforces nothing would be
+worse than useless.
+
+**Still unverified: MSVC.** The inert path is exercised by the GCC job and by
+`RT_SAFETY_FORCE_INERT`, so the code shape is known to work when `RT_SAFE` does nothing, but no
+MSVC build has ever been run against this. If you try it, an issue saying what happened would be
+genuinely useful.
 
 ## Prior art
 

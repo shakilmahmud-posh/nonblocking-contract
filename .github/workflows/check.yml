@@ -14,7 +14,7 @@ jobs:
     name: linux / clang-20 (enforcing)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install clang-20
         run: |
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
@@ -35,7 +35,7 @@ jobs:
     name: linux / gcc (inert fallback)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: g++ version
         run: g++ --version
       - name: verify must SKIP, not fail
@@ -60,7 +60,7 @@ jobs:
     name: macos / apple clang (darwin layer)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: clang version
         run: clang++ --version
       - name: full check
