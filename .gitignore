@@ -2,3 +2,6 @@ build/
 *.o
 *.dSYM/
 .DS_Store
+
+# factory metadata — internal, not part of the public release
+.claude/
